@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>称霸五子棋</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+    <div id="lobby">
+        <h1>🏆 称霸五子棋</h1>
+        <p class="subtitle">双人联机对战</p>
+        <div class="lobby-actions">
+            <button id="btnCreate" class="btn btn-primary" onclick="createRoom()">创建房间</button>
+            <div class="divider"><span>或</span></div>
+            <div class="join-group">
+                <input id="inputRoomId" type="text" maxlength="6" placeholder="输入房间号" autocomplete="off" />
+                <button id="btnJoin" class="btn btn-secondary" onclick="joinRoom()">加入房间</button>
+            </div>
+        </div>
+        <div id="roomInfo" class="room-info" style="display:none">
+            <p>房间号：<span id="displayRoomId" class="room-code"></span></p>
+            <p id="waitMsg" class="wait-msg">等待对手加入...</p>
+        </div>
+        <div id="errorMsg" class="error-msg" style="display:none"></div>
+    </div>
+
+    <div id="game" style="display:none">
+        <div class="game-header">
+            <div class="player-info">
+                <span id="blackIndicator" class="stone-indicator black"></span>
+                <span>黑方</span>
+            </div>
+            <div id="turnInfo" class="turn-info">黑方先行</div>
+            <div class="player-info">
+                <span>白方</span>
+                <span id="whiteIndicator" class="stone-indicator white"></span>
+            </div>
+        </div>
+        <canvas id="board" width="630" height="630"></canvas>
+        <div class="game-footer">
+            <span class="room-label">房间：<span id="gameRoomId"></span></span>
+            <button class="btn btn-small" onclick="restartGame()">重新开始</button>
+            <button class="btn btn-small btn-leave" onclick="leaveRoom()">离开房间</button>
+        </div>
+        <div class="chat-area">
+            <div id="chatMessages" class="chat-messages"></div>
+            <div class="chat-input-group">
+                <input id="chatInput" type="text" placeholder="发送消息..." maxlength="100" />
+                <button class="btn btn-small" onclick="sendChat()">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="winOverlay" class="win-overlay" style="display:none">
+        <div class="win-content">
+            <h2 id="winText"></h2>
+            <button class="btn btn-primary" onclick="restartGame()">再来一局</button>
+        </div>
+    </div>
+</div>
+
+<script src="client.js"></script>
+</body>
+</html>

@@ -1,0 +1,335 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #e0e0e0;
+}
+
+#app {
+    width: 100%;
+    max-width: 700px;
+    padding: 20px;
+}
+
+#lobby {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+#lobby h1 {
+    font-size: 3em;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, #f5af19, #f12711);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.subtitle {
+    font-size: 1.2em;
+    color: #8892b0;
+    margin-bottom: 40px;
+}
+
+.lobby-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.btn {
+    padding: 12px 32px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #f5af19, #f12711);
+    color: white;
+    font-size: 1.2em;
+    padding: 16px 48px;
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+}
+
+.btn-small {
+    padding: 8px 16px;
+    font-size: 0.85em;
+    background: rgba(255,255,255,0.1);
+    color: #e0e0e0;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.btn-small:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.btn-leave {
+    border-color: #e74c3c;
+    color: #e74c3c;
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: #8892b0;
+    width: 300px;
+}
+
+.divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.15);
+}
+
+.join-group {
+    display: flex;
+    gap: 10px;
+}
+
+.join-group input {
+    padding: 12px 16px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    color: white;
+    font-size: 1.1em;
+    width: 140px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.join-group input:focus {
+    border-color: #667eea;
+}
+
+.join-group input::placeholder {
+    letter-spacing: 1px;
+    font-size: 0.85em;
+    color: #666;
+}
+
+.room-info {
+    margin-top: 30px;
+    padding: 20px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    display: inline-block;
+}
+
+.room-code {
+    font-size: 2em;
+    font-weight: 700;
+    letter-spacing: 8px;
+    color: #f5af19;
+}
+
+.wait-msg {
+    margin-top: 10px;
+    color: #8892b0;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.error-msg {
+    margin-top: 15px;
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+#game {
+    text-align: center;
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+}
+
+.player-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1em;
+}
+
+.stone-indicator {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-block;
+    transition: box-shadow 0.3s;
+}
+
+.stone-indicator.black {
+    background: radial-gradient(circle at 35% 35%, #555, #111);
+    border: 2px solid #333;
+}
+
+.stone-indicator.white {
+    background: radial-gradient(circle at 35% 35%, #fff, #ccc);
+    border: 2px solid #999;
+}
+
+.stone-indicator.active {
+    box-shadow: 0 0 12px 3px #f5af19;
+}
+
+.turn-info {
+    font-weight: 700;
+    font-size: 1.1em;
+    color: #f5af19;
+}
+
+#board {
+    display: block;
+    margin: 0 auto;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.game-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    margin-top: 10px;
+}
+
+.room-label {
+    color: #8892b0;
+    font-size: 0.9em;
+}
+
+.chat-area {
+    margin-top: 12px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.chat-messages {
+    height: 100px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+    padding: 5px;
+    text-align: left;
+    font-size: 0.9em;
+}
+
+.chat-messages::-webkit-scrollbar {
+    width: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+}
+
+.chat-msg {
+    padding: 3px 0;
+}
+
+.chat-msg .sender {
+    font-weight: 600;
+}
+
+.chat-msg .sender.black-sender {
+    color: #aaa;
+}
+
+.chat-msg .sender.white-sender {
+    color: #f5af19;
+}
+
+.chat-input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.chat-input-group input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+    color: white;
+    outline: none;
+    font-size: 0.9em;
+}
+
+.chat-input-group input:focus {
+    border-color: #667eea;
+}
+
+.win-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+.win-content {
+    text-align: center;
+    padding: 40px 60px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border-radius: 16px;
+    border: 2px solid rgba(255,255,255,0.1);
+}
+
+.win-content h2 {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    background: linear-gradient(90deg, #f5af19, #f12711);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
