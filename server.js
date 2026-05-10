@@ -4,6 +4,7 @@ const path = require('path');
 const WebSocket = require('ws');
 
 const PORT = 3000;
+const BOARD_SIZE = 15;
 
 const server = http.createServer((req, res) => {
     let filePath = req.url === '/' ? '/index.html' : req.url;
@@ -56,12 +57,12 @@ function checkWin(board, row, col, player) {
         let count = 1;
         for (let i = 1; i < 5; i++) {
             const r = row + dr * i, c = col + dc * i;
-            if (r >= 0 && r < 15 && c >= 0 && c < 15 && board[r][c] === player) count++;
+            if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === player) count++;
             else break;
         }
         for (let i = 1; i < 5; i++) {
             const r = row - dr * i, c = col - dc * i;
-            if (r >= 0 && r < 15 && c >= 0 && c < 15 && board[r][c] === player) count++;
+            if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === player) count++;
             else break;
         }
         if (count >= 5) return true;
@@ -82,7 +83,7 @@ wss.on('connection', (ws) => {
         if (msg.type === 'create') {
             let roomId;
             do { roomId = generateRoomId(); } while (rooms.has(roomId));
-            const board = Array.from({ length: 15 }, () => Array(15).fill(0));
+            const board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
             rooms.set(roomId, {
                 players: [{ ws, color: 1 }],
                 board,
@@ -118,7 +119,7 @@ wss.on('connection', (ws) => {
             if (!room || !room.started) return;
             if (room.turn !== playerColor) return;
             const { row, col } = msg;
-            if (row < 0 || row >= 15 || col < 0 || col >= 15) return;
+            if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) return;
             if (room.board[row][col] !== 0) return;
 
             room.board[row][col] = playerColor;
@@ -138,7 +139,7 @@ wss.on('connection', (ws) => {
         if (msg.type === 'restart') {
             const room = rooms.get(currentRoom);
             if (!room) return;
-            room.board = Array.from({ length: 15 }, () => Array(15).fill(0));
+            room.board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
             room.turn = 1;
             broadcastToRoom(currentRoom, { type: 'restart', turn: 1 });
         }
@@ -163,7 +164,7 @@ wss.on('connection', (ws) => {
         } else {
             broadcastToRoom(currentRoom, { type: 'leave', color: playerColor });
             room.started = false;
-            room.board = Array.from({ length: 15 }, () => Array(15).fill(0));
+            room.board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
         }
     });
 });
