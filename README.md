@@ -1,6 +1,6 @@
 # 称霸五子棋 🎮
 
-双人联机五子棋对战游戏，基于 Node.js + WebSocket 实现。
+双人联机五子棋对战游戏，基于 Node.js + SSE 实现。
 
 ## 功能特性
 
@@ -35,7 +35,7 @@ npm start
 
 ## 技术栈
 
-- **后端**: Node.js + WebSocket (ws)
+- **后端**: Node.js + SSE (Server-Sent Events)
 - **前端**: 原生 HTML/CSS/JavaScript
 
 ## 项目结构

@@ -4,7 +4,9 @@ const PADDING = 25;
 const STONE_RADIUS = 17;
 const CANVAS_SIZE = PADDING * 2 + CELL_SIZE * (BOARD_SIZE - 1);
 
-let ws = null;
+let es = null;
+const clientId = crypto.randomUUID ? crypto.randomUUID()
+    : 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2);
 let myColor = 0;
 let currentTurn = 1;
 let board = [];
@@ -123,13 +125,13 @@ canvas.addEventListener('mouseleave', () => {
 });
 
 canvas.addEventListener('click', (e) => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!es || es.readyState !== EventSource.OPEN) return;
     if (gameOver) return;
     if (currentTurn !== myColor) return;
     const pos = getGridPos(e);
     if (!pos) return;
     if (board[pos.row][pos.col] !== 0) return;
-    ws.send(JSON.stringify({ type: 'move', row: pos.row, col: pos.col }));
+    sendToServer({ type: 'move', row: pos.row, col: pos.col });
 });
 
 function updateTurnInfo() {
@@ -161,13 +163,11 @@ function showGame() {
     document.getElementById('game').style.display = '';
 }
 
-function connectWS() {
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${protocol}//${location.host}`);
+function connectSSE() {
+    if (es && es.readyState !== EventSource.CLOSED) return;
+    es = new EventSource(`/events?clientId=${encodeURIComponent(clientId)}`);
 
-    ws.onopen = () => {};
-
-    ws.onmessage = (e) => {
+    es.onmessage = (e) => {
         const msg = JSON.parse(e.data);
 
         if (msg.type === 'created') {
@@ -227,46 +227,50 @@ function connectWS() {
         }
     };
 
-    ws.onclose = () => {
-        if (document.getElementById('game').style.display !== 'none') {
-            alert('连接已断开');
-            showLobby();
-        }
-    };
+    // EventSource 断线后会自动重连，无需额外处理
+    es.onerror = () => {};
+}
 
-    ws.onerror = () => {};
+async function sendToServer(msg) {
+    msg.clientId = clientId;
+    try {
+        await fetch(`/api/${msg.type}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(msg),
+        });
+    } catch {}
 }
 
 function createRoom() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        connectWS();
+    if (!es || es.readyState !== EventSource.OPEN) {
+        connectSSE();
         setTimeout(() => createRoom(), 300);
         return;
     }
-    ws.send(JSON.stringify({ type: 'create' }));
+    sendToServer({ type: 'create' });
 }
 
 function joinRoom() {
     const roomId = document.getElementById('inputRoomId').value.trim().toUpperCase();
     if (!roomId) return;
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        connectWS();
+    if (!es || es.readyState !== EventSource.OPEN) {
+        connectSSE();
         setTimeout(() => joinRoom(), 300);
         return;
     }
-    ws.send(JSON.stringify({ type: 'join', roomId }));
+    sendToServer({ type: 'join', roomId });
 }
 
 function restartGame() {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'restart' }));
+    if (es && es.readyState === EventSource.OPEN) {
+        sendToServer({ type: 'restart' });
     }
 }
 
 function leaveRoom() {
-    if (ws) {
-        ws.close();
-        ws = null;
+    if (es && es.readyState === EventSource.OPEN) {
+        sendToServer({ type: 'leave' });
     }
     showLobby();
     document.getElementById('roomInfo').style.display = 'none';
@@ -304,8 +308,8 @@ function escapeHtml(str) {
 function sendChat() {
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
-    if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({ type: 'chat', text }));
+    if (!text || !es || es.readyState !== EventSource.OPEN) return;
+    sendToServer({ type: 'chat', text });
     input.value = '';
 }
 
