@@ -168,77 +168,84 @@ function connectSSE() {
     es = new EventSource(`/events?clientId=${encodeURIComponent(clientId)}`);
 
     es.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
-
-        if (msg.type === 'created') {
-            myColor = msg.color;
-            document.getElementById('displayRoomId').textContent = msg.roomId;
-            document.getElementById('roomInfo').style.display = '';
-            document.getElementById('waitMsg').style.display = '';
-            document.getElementById('gameRoomId').textContent = msg.roomId;
-        }
-
-        if (msg.type === 'joined') {
-            myColor = msg.color;
-            document.getElementById('gameRoomId').textContent = msg.roomId;
-            document.getElementById('errorMsg').style.display = 'none';
-        }
-
-        if (msg.type === 'start') {
-            currentTurn = msg.turn;
-            initBoard();
-            showGame();
-        }
-
-        if (msg.type === 'move') {
-            board[msg.row][msg.col] = msg.color;
-            currentTurn = msg.turn;
-            drawBoard();
-            updateTurnInfo();
-            if (msg.win) {
-                gameOver = true;
-                updateTurnInfo();
-                showWin(msg.win);
-            }
-        }
-
-        if (msg.type === 'restart') {
-            initBoard();
-            document.getElementById('winOverlay').style.display = 'none';
-        }
-
-        if (msg.type === 'leave') {
-            gameOver = true;
-            alert('对手已离开房间');
-            showLobby();
-            document.getElementById('roomInfo').style.display = 'none';
-            document.getElementById('errorMsg').style.display = 'none';
-        }
-
-        if (msg.type === 'chat') {
-            addChatMessage(msg.color, msg.text);
-        }
-
-        if (msg.type === 'error') {
-            const errEl = document.getElementById('errorMsg');
-            errEl.textContent = msg.message;
-            errEl.style.display = '';
-            setTimeout(() => { errEl.style.display = 'none'; }, 3000);
-        }
+        handleMessage(JSON.parse(e.data));
     };
 
     // EventSource 断线后会自动重连，无需额外处理
     es.onerror = () => {};
 }
 
+function handleMessage(msg) {
+    if (msg.type === 'created') {
+        myColor = msg.color;
+        document.getElementById('displayRoomId').textContent = msg.roomId;
+        document.getElementById('roomInfo').style.display = '';
+        document.getElementById('waitMsg').style.display = '';
+        document.getElementById('gameRoomId').textContent = msg.roomId;
+    }
+
+    if (msg.type === 'joined') {
+        myColor = msg.color;
+        document.getElementById('gameRoomId').textContent = msg.roomId;
+        document.getElementById('errorMsg').style.display = 'none';
+    }
+
+    if (msg.type === 'start') {
+        currentTurn = msg.turn;
+        initBoard();
+        showGame();
+    }
+
+    if (msg.type === 'move') {
+        board[msg.row][msg.col] = msg.color;
+        currentTurn = msg.turn;
+        drawBoard();
+        updateTurnInfo();
+        if (msg.win) {
+            gameOver = true;
+            updateTurnInfo();
+            showWin(msg.win);
+        }
+    }
+
+    if (msg.type === 'restart') {
+        initBoard();
+        document.getElementById('winOverlay').style.display = 'none';
+    }
+
+    if (msg.type === 'leave') {
+        gameOver = true;
+        alert('对手已离开房间');
+        showLobby();
+        document.getElementById('roomInfo').style.display = 'none';
+        document.getElementById('errorMsg').style.display = 'none';
+    }
+
+    if (msg.type === 'chat') {
+        addChatMessage(msg.color, msg.text);
+    }
+
+    if (msg.type === 'error') {
+        const errEl = document.getElementById('errorMsg');
+        errEl.textContent = msg.message;
+        errEl.style.display = '';
+        setTimeout(() => { errEl.style.display = 'none'; }, 3000);
+    }
+}
+
 async function sendToServer(msg) {
     msg.clientId = clientId;
     try {
-        await fetch(`/api/${msg.type}`, {
+        const res = await fetch(`/api/${msg.type}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(msg),
         });
+        const data = await res.json();
+        // created/joined/error 随 POST 响应即时返回；start/move 等通过 SSE 广播
+        if (data && (data.type === 'created' || data.type === 'joined' || data.type === 'error')) {
+            handleMessage(data);
+        }
     } catch {}
 }
 
