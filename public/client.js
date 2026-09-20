@@ -303,24 +303,35 @@ async function sendToServer(msg) {
     } catch {}
 }
 
-function createRoom() {
-    if (!es || es.readyState !== EventSource.OPEN) {
-        connectSSE();
-        setTimeout(() => createRoom(), 300);
+function showServerError() {
+    const errEl = document.getElementById('errorMsg');
+    errEl.textContent = '无法连接到服务器：联机模式需要 Node 后端支持，这里只能使用「本地对战（同屏）」';
+    errEl.style.display = '';
+    setTimeout(() => { errEl.style.display = 'none'; }, 5000);
+}
+
+function waitForSSE(callback, retries = 5) {
+    if (es && es.readyState === EventSource.OPEN) {
+        callback();
         return;
     }
-    sendToServer({ type: 'create' });
+    if (retries <= 0) {
+        showServerError();
+        return;
+    }
+    setTimeout(() => waitForSSE(callback, retries - 1), 300);
+}
+
+function createRoom() {
+    connectSSE();
+    waitForSSE(() => sendToServer({ type: 'create' }));
 }
 
 function joinRoom() {
     const roomId = document.getElementById('inputRoomId').value.trim().toUpperCase();
     if (!roomId) return;
-    if (!es || es.readyState !== EventSource.OPEN) {
-        connectSSE();
-        setTimeout(() => joinRoom(), 300);
-        return;
-    }
-    sendToServer({ type: 'join', roomId });
+    connectSSE();
+    waitForSSE(() => sendToServer({ type: 'join', roomId }));
 }
 
 function restartGame() {
