@@ -12,6 +12,7 @@ let currentTurn = 1;
 let board = [];
 let gameOver = false;
 let hoverPos = null;
+let gameMode = 'online'; // 'online' | 'local'
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -61,7 +62,7 @@ function drawBoard() {
         }
     }
 
-    if (hoverPos && !gameOver && board[hoverPos.row][hoverPos.col] === 0 && currentTurn === myColor) {
+    if (hoverPos && !gameOver && board[hoverPos.row][hoverPos.col] === 0 && (gameMode === 'local' || currentTurn === myColor)) {
         drawStone(hoverPos.row, hoverPos.col, currentTurn, true);
     }
 }
@@ -125,11 +126,17 @@ canvas.addEventListener('mouseleave', () => {
 });
 
 canvas.addEventListener('click', (e) => {
+    const pos = getGridPos(e);
+    if (!pos) return;
+    if (gameMode === 'local') {
+        if (gameOver) return;
+        if (board[pos.row][pos.col] !== 0) return;
+        placeLocalMove(pos.row, pos.col);
+        return;
+    }
     if (!es || es.readyState !== EventSource.OPEN) return;
     if (gameOver) return;
     if (currentTurn !== myColor) return;
-    const pos = getGridPos(e);
-    if (!pos) return;
     if (board[pos.row][pos.col] !== 0) return;
     sendToServer({ type: 'move', row: pos.row, col: pos.col });
 });
@@ -163,6 +170,50 @@ function showGame() {
     document.getElementById('game').style.display = '';
 }
 
+// ===== 本地模式（同屏双人对战）=====
+
+function startLocalGame() {
+    gameMode = 'local';
+    initBoard();
+    showGame();
+    document.getElementById('roomLabel').style.display = 'none';
+    document.getElementById('chatArea').style.display = 'none';
+    document.getElementById('winOverlay').style.display = 'none';
+}
+
+function placeLocalMove(row, col) {
+    board[row][col] = currentTurn;
+    hoverPos = null;
+    if (checkWin(row, col, currentTurn)) {
+        gameOver = true;
+        drawBoard();
+        updateTurnInfo();
+        showWin(currentTurn);
+        return;
+    }
+    currentTurn = currentTurn === 1 ? 2 : 1;
+    drawBoard();
+    updateTurnInfo();
+}
+
+function checkWin(row, col, color) {
+    const dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
+    for (const [dr, dc] of dirs) {
+        let count = 1;
+        for (const sign of [1, -1]) {
+            let r = row + dr * sign;
+            let c = col + dc * sign;
+            while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === color) {
+                count++;
+                r += dr * sign;
+                c += dc * sign;
+            }
+        }
+        if (count >= 5) return true;
+    }
+    return false;
+}
+
 function connectSSE() {
     if (es && es.readyState !== EventSource.CLOSED) return;
     es = new EventSource(`/events?clientId=${encodeURIComponent(clientId)}`);
@@ -191,6 +242,9 @@ function handleMessage(msg) {
     }
 
     if (msg.type === 'start') {
+        gameMode = 'online';
+        document.getElementById('roomLabel').style.display = '';
+        document.getElementById('chatArea').style.display = '';
         currentTurn = msg.turn;
         initBoard();
         showGame();
@@ -270,6 +324,11 @@ function joinRoom() {
 }
 
 function restartGame() {
+    if (gameMode === 'local') {
+        initBoard();
+        document.getElementById('winOverlay').style.display = 'none';
+        return;
+    }
     if (es && es.readyState === EventSource.OPEN) {
         sendToServer({ type: 'restart' });
     }
@@ -287,10 +346,14 @@ function leaveRoom() {
 function showWin(winColor) {
     const overlay = document.getElementById('winOverlay');
     const text = document.getElementById('winText');
-    if (winColor === myColor) {
-        text.textContent = '🎉 你赢了！';
+    if (gameMode === 'local') {
+        text.textContent = winColor === 1 ? '🎉 黑方获胜！' : '🎉 白方获胜！';
     } else {
-        text.textContent = '😢 你输了！';
+        if (winColor === myColor) {
+            text.textContent = '🎉 你赢了！';
+        } else {
+            text.textContent = '😢 你输了！';
+        }
     }
     overlay.style.display = '';
 }
