@@ -305,7 +305,7 @@ async function sendToServer(msg) {
 
 function showServerError() {
     const errEl = document.getElementById('errorMsg');
-    errEl.textContent = '无法连接到服务器：联机模式需要 Node 后端支持，这里只能使用「本地对战（同屏）」';
+    errEl.textContent = '无法连接到服务器：联机模式需要 Node 后端支持，请使用「本地对战（同屏）」';
     errEl.style.display = '';
     setTimeout(() => { errEl.style.display = 'none'; }, 5000);
 }
