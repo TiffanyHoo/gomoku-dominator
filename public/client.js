@@ -13,6 +13,9 @@ let board = [];
 let gameOver = false;
 let hoverPos = null;
 let gameMode = 'online'; // 'online' | 'local'
+let currentRoomId = null;   // 当前联机房间号
+let moveHistory = [];       // 棋谱：[{ row, col, color }]
+let viewIndex = null;       // null = 实时/终局局面；k = 回放到第 k 手
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -24,8 +27,11 @@ function initBoard() {
     gameOver = false;
     currentTurn = 1;
     hoverPos = null;
+    moveHistory = [];
+    viewIndex = null;
     drawBoard();
     updateTurnInfo();
+    renderMoveList();
 }
 
 function drawBoard() {
@@ -54,15 +60,32 @@ function drawBoard() {
         ctx.fill();
     }
 
-    for (let r = 0; r < BOARD_SIZE; r++) {
-        for (let c = 0; c < BOARD_SIZE; c++) {
-            if (board[r][c] !== 0) {
-                drawStone(r, c, board[r][c]);
+    if (viewIndex === null) {
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                if (board[r][c] !== 0) {
+                    drawStone(r, c, board[r][c]);
+                }
+            }
+        }
+    } else {
+        // 回放：只绘制前 viewIndex 手，最后一手高亮标记
+        for (let i = 0; i < viewIndex && i < moveHistory.length; i++) {
+            const m = moveHistory[i];
+            drawStone(m.row, m.col, m.color);
+            if (i === viewIndex - 1) {
+                const x = PADDING + m.col * CELL_SIZE;
+                const y = PADDING + m.row * CELL_SIZE;
+                ctx.strokeStyle = '#e74c3c';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x, y, STONE_RADIUS + 3, 0, Math.PI * 2);
+                ctx.stroke();
             }
         }
     }
 
-    if (hoverPos && !gameOver && board[hoverPos.row][hoverPos.col] === 0 && (gameMode === 'local' || currentTurn === myColor)) {
+    if (hoverPos && viewIndex === null && !gameOver && board[hoverPos.row][hoverPos.col] === 0 && (gameMode === 'local' || currentTurn === myColor)) {
         drawStone(hoverPos.row, hoverPos.col, currentTurn, true);
     }
 }
@@ -135,7 +158,7 @@ canvas.addEventListener('click', (e) => {
         return;
     }
     if (!es || es.readyState !== EventSource.OPEN) return;
-    if (gameOver) return;
+    if (gameOver || viewIndex !== null) return; // 回放模式下不落子
     if (currentTurn !== myColor) return;
     if (board[pos.row][pos.col] !== 0) return;
     sendToServer({ type: 'move', row: pos.row, col: pos.col });
@@ -170,14 +193,20 @@ function showGame() {
     document.getElementById('game').style.display = '';
 }
 
+function hideNotice() {
+    document.getElementById('noticeBar').style.display = 'none';
+}
+
 // ===== 本地模式（同屏双人对战）=====
 
 function startLocalGame() {
     gameMode = 'local';
     initBoard();
     showGame();
+    hideNotice();
     document.getElementById('roomLabel').style.display = 'none';
     document.getElementById('chatArea').style.display = 'none';
+    document.getElementById('movePanel').style.display = 'none';
     document.getElementById('winOverlay').style.display = 'none';
 }
 
@@ -229,6 +258,8 @@ function connectSSE() {
 function handleMessage(msg) {
     if (msg.type === 'created') {
         myColor = msg.color;
+        currentRoomId = msg.roomId;
+        initBoard(); // 清空上一局的棋谱与回放状态
         document.getElementById('displayRoomId').textContent = msg.roomId;
         document.getElementById('roomInfo').style.display = '';
         document.getElementById('waitMsg').style.display = '';
@@ -237,6 +268,8 @@ function handleMessage(msg) {
 
     if (msg.type === 'joined') {
         myColor = msg.color;
+        currentRoomId = msg.roomId;
+        initBoard(); // 清空上一局的棋谱与回放状态
         document.getElementById('gameRoomId').textContent = msg.roomId;
         document.getElementById('errorMsg').style.display = 'none';
     }
@@ -245,15 +278,19 @@ function handleMessage(msg) {
         gameMode = 'online';
         document.getElementById('roomLabel').style.display = '';
         document.getElementById('chatArea').style.display = '';
+        document.getElementById('movePanel').style.display = '';
+        hideNotice();
         currentTurn = msg.turn;
         initBoard();
         showGame();
     }
 
     if (msg.type === 'move') {
+        moveHistory.push({ row: msg.row, col: msg.col, color: msg.color });
         board[msg.row][msg.col] = msg.color;
         currentTurn = msg.turn;
-        drawBoard();
+        if (viewIndex === null) drawBoard();
+        renderMoveList();
         updateTurnInfo();
         if (msg.win) {
             gameOver = true;
@@ -268,11 +305,16 @@ function handleMessage(msg) {
     }
 
     if (msg.type === 'leave') {
-        gameOver = true;
-        alert('对手已离开房间');
-        showLobby();
-        document.getElementById('roomInfo').style.display = 'none';
-        document.getElementById('errorMsg').style.display = 'none';
+        // 对手离开：不踢回大厅，保留棋盘供复盘，用非阻挡提示条提示
+        if (msg.wasPlaying) {
+            gameOver = true;
+            updateTurnInfo();
+        }
+        document.getElementById('winOverlay').style.display = 'none';
+        document.getElementById('noticeText').textContent = msg.wasPlaying
+            ? '对手已离开，本局未结束，可复盘棋局'
+            : '对手已离开房间，可复盘棋局';
+        document.getElementById('noticeBar').style.display = '';
     }
 
     if (msg.type === 'chat') {
@@ -349,9 +391,64 @@ function leaveRoom() {
     if (es && es.readyState === EventSource.OPEN) {
         sendToServer({ type: 'leave' });
     }
+    currentRoomId = null;
+    initBoard(); // 清空棋盘与棋谱，避免残留到下一局
+    hideNotice();
     showLobby();
     document.getElementById('roomInfo').style.display = 'none';
     document.getElementById('winOverlay').style.display = 'none';
+}
+
+function hideWinOverlay() {
+    document.getElementById('winOverlay').style.display = 'none';
+}
+
+// ===== 棋谱回放 =====
+
+function coordLabel(row, col) {
+    const letters = 'ABCDEFGHIJKLMNO';
+    return `${letters[col]}${BOARD_SIZE - row}`;
+}
+
+function renderMoveList() {
+    const container = document.getElementById('moveList');
+    if (!container) return;
+    container.innerHTML = '';
+    moveHistory.forEach((m, i) => {
+        const div = document.createElement('div');
+        div.className = 'move-item' + (viewIndex === i + 1 ? ' active' : '');
+        div.textContent = `第${i + 1}手  ${m.color === 1 ? '⚫ 黑' : '⚪ 白'}  ${coordLabel(m.row, m.col)}`;
+        div.addEventListener('click', () => replayTo(i + 1));
+        container.appendChild(div);
+    });
+    container.scrollTop = container.scrollHeight;
+}
+
+function replayTo(k) {
+    if (k < 1 || k > moveHistory.length) return;
+    viewIndex = (viewIndex === k) ? null : k; // 再次点击同一手回到实时局面
+    drawBoard();
+    renderMoveList();
+}
+
+function backToLive() {
+    viewIndex = null;
+    drawBoard();
+    renderMoveList();
+}
+
+// ===== 等待新对手（保留房间号）=====
+
+async function waitForOpponent() {
+    hideNotice();
+    if (es && es.readyState === EventSource.OPEN && currentRoomId) {
+        await sendToServer({ type: 'wait-opponent' });
+    }
+    initBoard();
+    showLobby();
+    document.getElementById('displayRoomId').textContent = currentRoomId || '';
+    document.getElementById('roomInfo').style.display = '';
+    document.getElementById('waitMsg').style.display = '';
 }
 
 function showWin(winColor) {

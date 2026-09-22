@@ -333,3 +333,96 @@ body {
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
+
+.overlay-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 浮层内按钮统一尺寸，避免一大一小 */
+.overlay-actions .btn {
+    min-width: 150px;
+    padding: 14px 32px;
+    font-size: 1.05em;
+    border-radius: 8px;
+}
+
+.overlay-actions .btn-primary {
+    font-size: 1.05em;
+    padding: 14px 32px;
+}
+
+/* 对手离开提示条（非阻挡，可同时操作棋盘与棋谱） */
+
+.notice-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    background: rgba(231, 76, 60, 0.15);
+    border: 1px solid rgba(231, 76, 60, 0.4);
+    border-radius: 12px;
+    font-weight: 600;
+    color: #f0b8b0;
+}
+
+.notice-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* ===== 棋谱面板 ===== */
+
+.move-panel {
+    margin-top: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.move-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 5px 8px;
+    font-weight: 700;
+    color: #f5af19;
+}
+
+.move-list {
+    height: 130px;
+    overflow-y: auto;
+    text-align: left;
+    font-size: 0.9em;
+}
+
+.move-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.move-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+}
+
+.move-item {
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.move-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.move-item.active {
+    background: rgba(245, 175, 25, 0.25);
+    color: #f5af19;
+    font-weight: 600;
+}

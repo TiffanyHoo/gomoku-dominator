@@ -88,6 +88,26 @@ function handleSSE(req, res, clientId) {
     });
 }
 
+function removePlayerFromRoom(state, clientId) {
+    const room = rooms.get(state.roomId);
+    if (!room) {
+        state.roomId = null;
+        return;
+    }
+    const p = room.players.find(p => p.clientId === clientId);
+    if (!p) return;
+    const wasPlaying = room.phase === 'playing';
+    room.players = room.players.filter(x => x !== p);
+    clearTimeout(p.cleanupTimer);
+    if (room.players.length === 0) {
+        rooms.delete(state.roomId);
+    } else {
+        // 保留棋盘供留房者复盘；若正在对局中则结束本局
+        if (wasPlaying) room.phase = 'ended';
+        broadcastToRoom(state.roomId, { type: 'leave', color: state.color, wasPlaying });
+    }
+}
+
 function handleDisconnect(clientId) {
     const state = clientState.get(clientId);
     if (!state || !state.roomId) return;
@@ -103,15 +123,7 @@ function handleDisconnect(clientId) {
     p.connected = false;
     p.cleanupTimer = setTimeout(() => {
         if (p.connected) return;
-        room.players = room.players.filter(x => x !== p);
-        if (room.players.length === 0) {
-            rooms.delete(state.roomId);
-        } else {
-            broadcastToRoom(state.roomId, { type: 'leave', color: state.color });
-            room.started = false;
-            room.board = resetBoard();
-            room.turn = 1;
-        }
+        removePlayerFromRoom(state, clientId);
     }, 5000);
 }
 
@@ -136,6 +148,7 @@ function handleApi(res, pathname, msg) {
             board: resetBoard(),
             turn: 1,
             started: false,
+            phase: 'waiting', // 'waiting' | 'playing' | 'ended'
         });
         state.roomId = roomId;
         state.color = 1;
@@ -154,11 +167,19 @@ function handleApi(res, pathname, msg) {
             reply({ type: 'error', message: '房间已满！' });
             return;
         }
-        room.players.push({ clientId, color: 2, connected: true });
+        // 同一客户端不能加入自己创建的房间
+        if (room.players.some(p => p.clientId === clientId)) {
+            reply({ type: 'error', message: '不能加入自己的房间！' });
+            return;
+        }
+        // 分配空缺的颜色（兼容"等待新对手"时留房者为白方的情况）
+        const color = room.players.some(p => p.color === 1) ? 2 : 1;
+        room.players.push({ clientId, color, connected: true });
         state.roomId = roomId;
-        state.color = 2;
+        state.color = color;
         room.started = true;
-        reply({ type: 'joined', roomId, color: 2 });
+        room.phase = 'playing';
+        reply({ type: 'joined', roomId, color });
         broadcastToRoom(roomId, { type: 'start', turn: 1 });
         return;
     }
@@ -182,6 +203,7 @@ function handleApi(res, pathname, msg) {
         room.board[row][col] = state.color;
         const win = checkWin(room.board, row, col, state.color);
         room.turn = state.color === 1 ? 2 : 1;
+        if (win) room.phase = 'ended';
 
         broadcastToRoom(state.roomId, {
             type: 'move',
@@ -197,14 +219,30 @@ function handleApi(res, pathname, msg) {
 
     if (pathname === '/api/restart') {
         const room = rooms.get(state.roomId);
-        if (!room) {
+        if (!room || room.players.length < 2) {
             reply({ ok: false });
             return;
         }
         room.board = resetBoard();
         room.turn = 1;
+        room.phase = 'playing';
         broadcastToRoom(state.roomId, { type: 'restart', turn: 1 });
         reply({ ok: true });
+        return;
+    }
+
+    if (pathname === '/api/wait-opponent') {
+        const room = rooms.get(state.roomId);
+        // 仅允许房间只剩自己时等待新对手：重置棋盘但保留房间号
+        if (!room || room.players.length !== 1) {
+            reply({ ok: false });
+            return;
+        }
+        room.board = resetBoard();
+        room.turn = 1;
+        room.started = false;
+        room.phase = 'waiting';
+        reply({ ok: true, roomId: state.roomId, color: state.color });
         return;
     }
 
@@ -223,17 +261,8 @@ function handleApi(res, pathname, msg) {
     }
 
     if (pathname === '/api/leave') {
-        const room = rooms.get(state.roomId);
-        if (room) {
-            room.players = room.players.filter(p => p.clientId !== clientId);
-            if (room.players.length === 0) {
-                rooms.delete(state.roomId);
-            } else {
-                broadcastToRoom(state.roomId, { type: 'leave', color: state.color });
-                room.started = false;
-                room.board = resetBoard();
-                room.turn = 1;
-            }
+        if (state.roomId) {
+            removePlayerFromRoom(state, clientId);
         }
         state.roomId = null;
         state.color = 0;
@@ -279,7 +308,11 @@ const server = http.createServer((req, res) => {
             res.end('Not Found');
             return;
         }
-        res.writeHead(200, { 'Content-Type': contentType });
+        // 禁止缓存，避免浏览器使用旧版页面/脚本
+        res.writeHead(200, {
+            'Content-Type': contentType,
+            'Cache-Control': 'no-cache',
+        });
         res.end(data);
     });
 });
