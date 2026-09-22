@@ -421,7 +421,16 @@ function renderMoveList() {
         div.addEventListener('click', () => replayTo(i + 1));
         container.appendChild(div);
     });
-    container.scrollTop = container.scrollHeight;
+    if (viewIndex === null) {
+        container.scrollTop = container.scrollHeight; // 实时/终局：跟随最新一手
+    } else {
+        // 回放：选中项居中显示，不强制滚到底部
+        const active = container.children[viewIndex - 1];
+        if (active) {
+            const top = active.offsetTop - container.clientHeight / 2 + active.offsetHeight / 2;
+            container.scrollTop = Math.max(0, top);
+        }
+    }
 }
 
 function replayTo(k) {
