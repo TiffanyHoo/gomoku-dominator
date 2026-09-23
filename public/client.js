@@ -1,8 +1,4 @@
 const BOARD_SIZE = 15;
-const CELL_SIZE = 40;
-const PADDING = 25;
-const STONE_RADIUS = 17;
-const CANVAS_SIZE = PADDING * 2 + CELL_SIZE * (BOARD_SIZE - 1);
 
 let es = null;
 const clientId = crypto.randomUUID ? crypto.randomUUID()
@@ -17,10 +13,13 @@ let currentRoomId = null;   // 当前联机房间号
 let moveHistory = [];       // 棋谱：[{ row, col, color }]
 let viewIndex = null;       // null = 实时/终局局面；k = 回放到第 k 手
 
-const canvas = document.getElementById('board');
-const ctx = canvas.getContext('2d');
-canvas.width = CANVAS_SIZE;
-canvas.height = CANVAS_SIZE;
+// ===== 3D 棋盘（board3d.js 提供，纯 CSS 3D 实现）=====
+Board3D.init(document.getElementById('board'), {
+    onCellClick: handleBoardClick,
+    onCellHover: (row, col) => { hoverPos = { row, col }; drawBoard(); },
+    onCellLeave: () => { hoverPos = null; drawBoard(); },
+});
+document.getElementById('btnResetView').addEventListener('click', () => Board3D.resetView());
 
 function initBoard() {
     board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
@@ -35,134 +34,42 @@ function initBoard() {
 }
 
 function drawBoard() {
-    ctx.fillStyle = '#dcb35c';
-    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-
-    ctx.strokeStyle = '#8b6914';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < BOARD_SIZE; i++) {
-        const pos = PADDING + i * CELL_SIZE;
-        ctx.beginPath();
-        ctx.moveTo(PADDING, pos);
-        ctx.lineTo(PADDING + (BOARD_SIZE - 1) * CELL_SIZE, pos);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(pos, PADDING);
-        ctx.lineTo(pos, PADDING + (BOARD_SIZE - 1) * CELL_SIZE);
-        ctx.stroke();
-    }
-
-    const starPoints = [[3,3],[3,11],[7,7],[11,3],[11,11]];
-    for (const [r, c] of starPoints) {
-        ctx.beginPath();
-        ctx.arc(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#8b6914';
-        ctx.fill();
-    }
-
+    const stones = [];
+    let lastMove = null;
     if (viewIndex === null) {
         for (let r = 0; r < BOARD_SIZE; r++) {
             for (let c = 0; c < BOARD_SIZE; c++) {
-                if (board[r][c] !== 0) {
-                    drawStone(r, c, board[r][c]);
-                }
+                if (board[r][c] !== 0) stones.push({ row: r, col: c, color: board[r][c] });
             }
         }
     } else {
-        // 回放：只绘制前 viewIndex 手，最后一手高亮标记
+        // 回放：只显示前 viewIndex 手，最后一手高亮标记
         for (let i = 0; i < viewIndex && i < moveHistory.length; i++) {
             const m = moveHistory[i];
-            drawStone(m.row, m.col, m.color);
-            if (i === viewIndex - 1) {
-                const x = PADDING + m.col * CELL_SIZE;
-                const y = PADDING + m.row * CELL_SIZE;
-                ctx.strokeStyle = '#e74c3c';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(x, y, STONE_RADIUS + 3, 0, Math.PI * 2);
-                ctx.stroke();
-            }
+            stones.push({ row: m.row, col: m.col, color: m.color });
         }
+        lastMove = moveHistory[viewIndex - 1] || null;
     }
-
-    if (hoverPos && viewIndex === null && !gameOver && board[hoverPos.row][hoverPos.col] === 0 && (gameMode === 'local' || currentTurn === myColor)) {
-        drawStone(hoverPos.row, hoverPos.col, currentTurn, true);
-    }
+    const canHover = viewIndex === null && !gameOver && (gameMode === 'local' || currentTurn === myColor);
+    const hover = canHover && hoverPos && board[hoverPos.row][hoverPos.col] === 0
+        ? { row: hoverPos.row, col: hoverPos.col, color: currentTurn }
+        : null;
+    Board3D.render({ stones, hover, lastMove, interactive: canHover });
 }
 
-function drawStone(row, col, color, ghost) {
-    const x = PADDING + col * CELL_SIZE;
-    const y = PADDING + row * CELL_SIZE;
-    const alpha = ghost ? 0.4 : 1;
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
-
-    if (color === 1) {
-        const grad = ctx.createRadialGradient(x - 4, y - 4, 2, x, y, STONE_RADIUS);
-        grad.addColorStop(0, '#666');
-        grad.addColorStop(1, '#111');
-        ctx.fillStyle = grad;
-    } else {
-        const grad = ctx.createRadialGradient(x - 4, y - 4, 2, x, y, STONE_RADIUS);
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(1, '#cccccc');
-        ctx.fillStyle = grad;
-    }
-
-    ctx.beginPath();
-    ctx.arc(x, y, STONE_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (!ghost) {
-        ctx.strokeStyle = color === 1 ? '#000' : '#999';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-    }
-
-    ctx.restore();
-}
-
-function getGridPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const mx = (e.clientX - rect.left) * scaleX;
-    const my = (e.clientY - rect.top) * scaleY;
-    const col = Math.round((mx - PADDING) / CELL_SIZE);
-    const row = Math.round((my - PADDING) / CELL_SIZE);
-    if (row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE) {
-        return { row, col };
-    }
-    return null;
-}
-
-canvas.addEventListener('mousemove', (e) => {
-    const pos = getGridPos(e);
-    hoverPos = pos;
-    drawBoard();
-});
-
-canvas.addEventListener('mouseleave', () => {
-    hoverPos = null;
-    drawBoard();
-});
-
-canvas.addEventListener('click', (e) => {
-    const pos = getGridPos(e);
-    if (!pos) return;
+function handleBoardClick(row, col) {
     if (gameMode === 'local') {
         if (gameOver) return;
-        if (board[pos.row][pos.col] !== 0) return;
-        placeLocalMove(pos.row, pos.col);
+        if (board[row][col] !== 0) return;
+        placeLocalMove(row, col);
         return;
     }
     if (!es || es.readyState !== EventSource.OPEN) return;
     if (gameOver || viewIndex !== null) return; // 回放模式下不落子
     if (currentTurn !== myColor) return;
-    if (board[pos.row][pos.col] !== 0) return;
-    sendToServer({ type: 'move', row: pos.row, col: pos.col });
-});
+    if (board[row][col] !== 0) return;
+    sendToServer({ type: 'move', row, col });
+}
 
 function updateTurnInfo() {
     const turnInfo = document.getElementById('turnInfo');

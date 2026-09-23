@@ -222,12 +222,228 @@ body {
     color: #f5af19;
 }
 
-#board {
-    display: block;
+/* ===== 3D 棋盘 ===== */
+
+.board-wrap {
+    position: relative;
+    width: 668px;
+    max-width: 100%;
     margin: 0 auto;
-    border-radius: 8px;
-    cursor: pointer;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.board3d {
+    position: relative;
+    width: 100%;
+    height: 620px;
+    perspective: 1500px;
+    perspective-origin: 50% 40%;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.board3d.interactive .hitarea { cursor: pointer; }
+
+.stage {
+    position: absolute;
+    left: 50%;
+    top: 46%;
+    width: 0;
+    height: 0;
+    transform-style: preserve-3d;
+    transform: rotateX(52deg);
+    will-change: transform;
+}
+
+.face { position: absolute; left: 50%; top: 50%; transform-style: preserve-3d; }
+
+/* 顶面（落子面）*/
+.face-top {
+    width: 656px;
+    height: 656px;
+    margin: -328px 0 0 -328px;
+    transform: translateZ(12px);
+    background-image: var(--wood-top);
+    background-size: 100% 100%;
+    border-radius: 14px;
+    box-shadow:
+        inset 0 0 0 2px rgba(90, 55, 15, 0.35),
+        inset 0 0 26px rgba(80, 45, 5, 0.28),
+        inset 0 2px 3px rgba(255, 240, 200, 0.35);
+}
+
+/* 顶面受光渐变（叠加在木纹之上）*/
+.face-top::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    background:
+        radial-gradient(ellipse at 32% 24%, rgba(255, 240, 205, 0.16), rgba(0, 0, 0, 0) 55%),
+        linear-gradient(160deg, rgba(255, 235, 190, 0.10), rgba(40, 20, 0, 0.14));
+    pointer-events: none;
+}
+
+/* 四个侧面 + 底面 */
+.face-side {
+    background-image: var(--wood-side);
+    background-size: 100% 100%;
+    box-shadow: inset 0 0 18px rgba(50, 26, 0, 0.35);
+}
+.face-back  { width: 656px; height: 24px; margin: -12px 0 0 -328px; }
+.face-front { width: 656px; height: 24px; margin: -12px 0 0 -328px; }
+.face-left  { width: 24px; height: 656px; margin: -328px 0 0 -12px; }
+.face-right { width: 24px; height: 656px; margin: -328px 0 0 -12px; }
+.face-bottom {
+    width: 656px;
+    height: 656px;
+    margin: -328px 0 0 -328px;
+    transform: translateZ(-12px) rotateY(180deg);
+    background-image: var(--wood-bottom);
+    background-size: 100% 100%;
+    border-radius: 14px;
+}
+
+/* 桌面接地阴影 */
+.floor-shadow {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 720px;
+    height: 720px;
+    margin: -360px 0 0 -360px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center,
+        rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.14) 45%, rgba(0, 0, 0, 0) 70%);
+}
+
+/* 棋盘线 / 星位 / 坐标 / 命中区（均位于顶面之上）*/
+.grid-line { position: absolute; left: 50%; top: 50%; background: rgba(74, 48, 18, 0.9); pointer-events: none; }
+.grid-line.h { width: 560px; height: 1px; margin: -0.5px 0 0 -280px; }
+.grid-line.v { width: 1px; height: 560px; margin: -280px 0 0 -0.5px; }
+
+.star-point {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    margin: -3.5px 0 0 -3.5px;
+    border-radius: 50%;
+    background: rgba(74, 48, 18, 0.95);
+    pointer-events: none;
+}
+
+.coord {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(96, 60, 22, 0.9);
+    text-shadow: 0 1px 0 rgba(255, 245, 220, 0.5);
+    pointer-events: none;
+}
+
+.hitarea {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 37px;
+    height: 37px;
+    margin: -18.5px 0 0 -18.5px;
+    border-radius: 50%;
+}
+
+/* 棋子：球面切片堆叠（board3d.js 生成多层 slice）+ 接触阴影，落子带下落动画
+   注意：.stone 必须 preserve-3d，否则内部 slice 会被压扁成同心圆平面 */
+.stone {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 36px;
+    height: 36px;
+    margin: -18px 0 0 -18px;
+    pointer-events: none;
+    transform-style: preserve-3d;
+}
+.stone-shadow {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 46px;
+    height: 18px;
+    margin: -6px 0 0 -23px;
+    background: radial-gradient(closest-side,
+        rgba(0, 0, 0, 0.38), rgba(0, 0, 0, 0.12) 55%, rgba(0, 0, 0, 0.06) 75%, rgba(0, 0, 0, 0));
+    border-radius: 50%;
+    transform: translateZ(0.05px);
+}
+.stone-lift {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+}
+.stone-lift .slice {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    border-radius: 50%;
+}
+.stone-lift.dropping { animation: stone-drop 0.38s cubic-bezier(0.22, 1.2, 0.36, 1) both; }
+@keyframes stone-drop {
+    0%   { transform: translateZ(150px) scale(1.28); opacity: 0; }
+    55%  { transform: translateZ(0) scale(1); opacity: 1; }
+    75%  { transform: translateZ(-5px) scale(0.96); }
+    100% { transform: translateZ(0) scale(1); }
+}
+
+/* 悬停虚影 */
+.stone.ghost { opacity: 0.45; }
+.stone.ghost .stone-shadow { display: none; }
+.stone.ghost .stone-lift { animation: ghost-pulse 1.6s ease-in-out infinite; }
+@keyframes ghost-pulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.06); }
+}
+
+/* 回放：最后一手标记 */
+.last-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 46px;
+    height: 46px;
+    margin: -23px 0 0 -23px;
+    border-radius: 50%;
+    border: 2px solid #ff5f4e;
+    box-shadow: 0 0 10px rgba(255, 95, 78, 0.75);
+    pointer-events: none;
+}
+
+/* 视角操作 */
+.view-reset {
+    position: absolute;
+    right: 6px;
+    top: 6px;
+    z-index: 5;
+    opacity: 0.85;
+}
+.view-reset:hover { opacity: 1; }
+
+.board-tip {
+    margin-top: 4px;
+    text-align: center;
+    font-size: 12px;
+    color: rgba(224, 224, 224, 0.45);
+}
+
+/* 小屏适配：整体缩放棋盘 */
+@media (max-width: 720px) {
+    .board-wrap { zoom: 0.75; }
+}
+@media (max-width: 540px) {
+    .board-wrap { zoom: 0.55; }
 }
 
 .game-footer {
