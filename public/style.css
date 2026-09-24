@@ -235,8 +235,8 @@ body {
     position: relative;
     width: 100%;
     height: 620px;
-    perspective: 1500px;
-    perspective-origin: 50% 40%;
+    /* 透视由 .stage 自身的 transform: perspective(...) 提供（消失点=旋转中心），
+       不用父级 perspective：与 will-change/preserve-3d 组合时 Chrome 投影会失真 */
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
@@ -251,8 +251,10 @@ body {
     width: 0;
     height: 0;
     transform-style: preserve-3d;
-    transform: rotateX(52deg);
-    will-change: transform;
+    /* 透视由 .stage 自身的 transform 提供（消失点=旋转中心）。
+       js 缩放时同步放大 perspective 距离并 scale3d 缩放整个场景（摄影机推轨），
+       保证任意缩放下投影严格等比放大，棋子扁圆形状不因缩放/远近改变 */
+    transform: perspective(2500px) rotateX(52deg);
 }
 
 .face { position: absolute; left: 50%; top: 50%; transform-style: preserve-3d; }
@@ -390,22 +392,16 @@ body {
     top: 50%;
     border-radius: 50%;
 }
-.stone-lift.dropping { animation: stone-drop 0.38s cubic-bezier(0.22, 1.2, 0.36, 1) both; }
+/* 落子动画：一次干净的缓出下落，不做回弹/下陷（回弹会被感知成棋盘抖动） */
+.stone-lift.dropping { animation: stone-drop 0.3s ease-out both; }
 @keyframes stone-drop {
-    0%   { transform: translateZ(150px) scale(1.28); opacity: 0; }
-    55%  { transform: translateZ(0) scale(1); opacity: 1; }
-    75%  { transform: translateZ(-5px) scale(0.96); }
-    100% { transform: translateZ(0) scale(1); }
+    0%   { transform: translateZ(90px) scale(1.1); opacity: 0; }
+    100% { transform: translateZ(0) scale(1); opacity: 1; }
 }
 
-/* 悬停虚影 */
-.stone.ghost { opacity: 0.45; }
+/* 悬停虚影（静态半透明，不加无限动画，避免持续占用合成） */
+.stone.ghost { opacity: 0.4; }
 .stone.ghost .stone-shadow { display: none; }
-.stone.ghost .stone-lift { animation: ghost-pulse 1.6s ease-in-out infinite; }
-@keyframes ghost-pulse {
-    0%, 100% { transform: scale(1); }
-    50%      { transform: scale(1.06); }
-}
 
 /* 回放：最后一手标记 */
 .last-ring {

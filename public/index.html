@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>称霸五子棋</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚫</text></svg>">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <div id="app">
@@ -51,7 +51,7 @@
         <div class="board-wrap">
             <div id="board" class="board3d"></div>
             <button id="btnResetView" class="btn btn-small view-reset" type="button">⟳ 复位视角</button>
-            <div class="board-tip">拖动旋转视角 · 滚轮/双指缩放 · 双击复位</div>
+            <div class="board-tip">拖动旋转视角 · 滚轮/双指缩放 · 双击空白处复位</div>
         </div>
         <div class="game-footer">
             <span class="room-label" id="roomLabel">房间：<span id="gameRoomId"></span></span>
@@ -85,7 +85,7 @@
     </div>
 </div>
 
-<script src="board3d.js"></script>
-<script src="client.js"></script>
+<script src="board3d.js?v=4"></script>
+<script src="client.js?v=4"></script>
 </body>
 </html>

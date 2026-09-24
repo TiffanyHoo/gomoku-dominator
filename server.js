@@ -293,7 +293,8 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    let filePath = req.url === '/' ? '/index.html' : req.url;
+    // 用 pathname 而非 req.url：带 ?v= 版本号的静态资源才能正确命中文件
+    let filePath = url.pathname === '/' ? '/index.html' : url.pathname;
     filePath = path.join(__dirname, 'public', filePath);
     const ext = path.extname(filePath);
     const contentTypes = {

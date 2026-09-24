@@ -23,7 +23,8 @@
     var SLICE_N = 16;              // 球面分层数（越多越光滑，层间条纹越不可见）
     var LETTERS = 'ABCDEFGHIJKLMNO';
 
-    var DEF_RX = 52;               // 默认俯视角(deg)
+    var PERSP = 2500;             // 透视距离(px)，与 .stage 默认 transform 保持一致；调柔以减少广角畸变
+    var DEF_RX = 52;              // 默认俯视角(deg)，决定棋子扁圆椭球的扁率（cos52≈0.62）
     var RX_MIN = 15, RX_MAX = 82;
     var SCALE_MIN = 0.5, SCALE_MAX = 1.8;
 
@@ -242,10 +243,10 @@
             seen[key] = true;
             if (stoneEls.has(key)) return;
             var st = buildStone(s.color);
+            place(st, s.row, s.col, 0); // 先写 transform 再入树，少一次样式失效
             surface.appendChild(st);
             var lift = st.querySelector('.stone-lift');
             lift.addEventListener('animationend', function () { lift.classList.remove('dropping'); });
-            place(st, s.row, s.col, 0);
             stoneEls.set(key, st);
             // 下一帧加动画类，确保过渡触发
             requestAnimationFrame(function () { lift.classList.add('dropping'); });
@@ -340,8 +341,10 @@
             kick();
         }, { passive: false });
 
-        // 拖拽后不触发落子
-        scene.addEventListener('dblclick', resetView);
+        // 双击复位：仅命中木质区域时生效，避开交叉点，防止快速连续落子被判定为双击而误转视角
+        scene.addEventListener('dblclick', function (e) {
+            if (!(e.target.closest && e.target.closest('.hitarea'))) resetView();
+        });
         scene.addEventListener('mouseleave', function () {
             if (onCellLeave) onCellLeave();
         });
@@ -364,8 +367,11 @@
     var rafId = 0;
 
     function applyTransform() {
-        stage.style.transform = 'rotateX(' + cRx.toFixed(2) + 'deg) rotateZ(' + cRz.toFixed(2) +
-            'deg) scale(' + cScale.toFixed(3) + ')';
+        // 缩放 = 摄影机推轨（dolly）：perspective 距离随 scale 同步放大，且 scale3d
+        // 同时缩放 x/y/z——任意缩放下整个投影严格等比放大，棋子扁圆形状完全不变
+        var s = cScale;
+        stage.style.transform = 'perspective(' + (PERSP * s).toFixed(1) + 'px) rotateX(' + cRx.toFixed(2) + 'deg) rotateZ(' +
+            cRz.toFixed(2) + 'deg) scale3d(' + s.toFixed(4) + ', ' + s.toFixed(4) + ', ' + s.toFixed(4) + ')';
     }
 
     function loop() {
