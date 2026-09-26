@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>称霸五子棋</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚫</text></svg>">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <div id="app">
@@ -51,9 +51,16 @@
             </div>
         </div>
         <div class="board-wrap">
-            <div id="board" class="board3d"></div>
+            <div id="board" class="board-host">
+                <div id="board3d" class="board3d"></div>
+                <div id="board2d" class="board2d"></div>
+            </div>
+            <div class="mode-switch" id="boardModeSwitch">
+                <button type="button" class="mode-btn" data-mode="2d">2D</button>
+                <button type="button" class="mode-btn" data-mode="3d">3D</button>
+            </div>
             <button id="btnResetView" class="btn btn-small view-reset" type="button">⟳ 复位视角</button>
-            <div class="board-tip">拖动旋转视角 · 滚轮/双指缩放 · 双击空白处复位</div>
+            <div class="board-tip" id="boardTip">拖动旋转视角 · 滚轮/双指缩放 · 双击空白处复位</div>
         </div>
         <div class="game-footer">
             <span class="room-label" id="roomLabel">房间：<span id="gameRoomId"></span>
@@ -103,7 +110,8 @@
 </div>
 
 <script src="board3d.js?v=4"></script>
-<script src="client.js?v=6"></script>
+<script src="board2d.js?v=1"></script>
+<script src="client.js?v=7"></script>
 <script>
 // 兜底：client.js 未成功执行（常见于重新发布的更新窗口，拿到不完整或失效的脚本）时，
 // 自动刷新一次恢复；仍失败则给出明确提示，避免按钮点击无反应且无从排查

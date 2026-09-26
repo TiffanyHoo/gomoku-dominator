@@ -14,13 +14,50 @@ let moveHistory = [];       // 棋谱：[{ row, col, color }]
 let viewIndex = null;       // null = 实时/终局局面；k = 回放到第 k 手
 let undoPending = false;    // 我发起的悔棋请求正在等待对方同意
 
-// ===== 3D 棋盘（board3d.js 提供，纯 CSS 3D 实现）=====
-Board3D.init(document.getElementById('board'), {
+// ===== 棋盘渲染：2D（board2d.js，canvas）与 3D（board3d.js，CSS 3D）双实现，可切换 =====
+const board3dRoot = document.getElementById('board3d');
+const board2dRoot = document.getElementById('board2d');
+let boardMode = (() => {
+    try { return localStorage.getItem('gomoku_board_mode') === '2d' ? '2d' : '3d'; }
+    catch (e) { return '3d'; }
+})();
+
+const boardCallbacks = {
     onCellClick: handleBoardClick,
     onCellHover: (row, col) => { hoverPos = { row, col }; drawBoard(); },
     onCellLeave: () => { hoverPos = null; drawBoard(); },
-});
+};
+Board3D.init(board3dRoot, boardCallbacks);
+Board2D.init(board2dRoot, boardCallbacks);
 document.getElementById('btnResetView').addEventListener('click', () => Board3D.resetView());
+
+function activeBoard() {
+    return boardMode === '2d' ? Board2D : Board3D;
+}
+
+function applyBoardMode() {
+    board3dRoot.style.display = boardMode === '3d' ? '' : 'none';
+    board2dRoot.style.display = boardMode === '2d' ? '' : 'none';
+    // 复位视角按钮与拖拽提示仅 3D 模式有意义
+    document.getElementById('btnResetView').style.display = boardMode === '3d' ? '' : 'none';
+    document.getElementById('boardTip').style.display = boardMode === '3d' ? '' : 'none';
+    document.querySelectorAll('#boardModeSwitch .mode-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.mode === boardMode);
+    });
+}
+
+function setBoardMode(mode) {
+    if (mode === boardMode) return;
+    boardMode = mode;
+    try { localStorage.setItem('gomoku_board_mode', mode); } catch (e) {}
+    applyBoardMode();
+    drawBoard(); // 切换后立即在当前棋盘上重绘局面
+}
+
+document.querySelectorAll('#boardModeSwitch .mode-btn').forEach((btn) => {
+    btn.addEventListener('click', () => setBoardMode(btn.dataset.mode));
+});
+applyBoardMode();
 
 function initBoard() {
     board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
@@ -56,7 +93,7 @@ function drawBoard() {
     const hover = canHover && hoverPos && board[hoverPos.row][hoverPos.col] === 0
         ? { row: hoverPos.row, col: hoverPos.col, color: currentTurn }
         : null;
-    Board3D.render({ stones, hover, lastMove, interactive: canHover });
+    activeBoard().render({ stones, hover, lastMove, interactive: canHover });
 }
 
 function handleBoardClick(row, col) {
