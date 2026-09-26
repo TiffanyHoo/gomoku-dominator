@@ -446,6 +446,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
     padding: 10px 0;
     margin-top: 10px;
 }
@@ -637,4 +638,35 @@ body {
     background: rgba(245, 175, 25, 0.25);
     color: #f5af19;
     font-weight: 600;
+}
+
+/* ===== 悔棋 ===== */
+
+.undo-content {
+    padding: 32px 48px;
+}
+
+.undo-title {
+    font-size: 1.4em;
+    color: #f5af19;
+    background: none;
+    -webkit-text-fill-color: #f5af19;
+    margin-bottom: 24px;
+}
+
+/* 轻量提示条（悔棋结果、错误反馈等） */
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 90px;
+    transform: translateX(-50%);
+    padding: 10px 24px;
+    background: rgba(15, 20, 40, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    font-weight: 600;
+    color: #e0e0e0;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+    z-index: 200;
+    pointer-events: none;
 }

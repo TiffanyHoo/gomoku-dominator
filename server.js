@@ -7,7 +7,7 @@ const BOARD_SIZE = 15;
 
 const clients = new Map();      // clientId -> SSE response
 const clientState = new Map();  // clientId -> { roomId, color }
-const rooms = new Map();        // roomId -> { players, board, turn, started }
+const rooms = new Map();        // roomId -> { players, board, moves, turn, started, phase, pendingUndo }
 
 function generateRoomId() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -26,6 +26,11 @@ function broadcastToRoom(roomId, message) {
         const res = clients.get(p.clientId);
         if (res) res.write(data);
     });
+}
+
+function sendToClient(clientId, message) {
+    const res = clients.get(clientId);
+    if (res) res.write(`data: ${JSON.stringify(message)}\n\n`);
 }
 
 function resetBoard() {
@@ -97,6 +102,7 @@ function removePlayerFromRoom(state, clientId) {
     const p = room.players.find(p => p.clientId === clientId);
     if (!p) return;
     const wasPlaying = room.phase === 'playing';
+    room.pendingUndo = null; // 有悔棋请求待处理时离开，请求随之作废
     room.players = room.players.filter(x => x !== p);
     clearTimeout(p.cleanupTimer);
     if (room.players.length === 0) {
@@ -146,9 +152,11 @@ function handleApi(res, pathname, msg) {
         rooms.set(roomId, {
             players: [{ clientId, color: 1, connected: true }],
             board: resetBoard(),
+            moves: [],          // 落子历史：[{ row, col, color }]
             turn: 1,
             started: false,
             phase: 'waiting', // 'waiting' | 'playing' | 'ended'
+            pendingUndo: null,  // 悔棋请求：{ requesterId, requesterColor }
         });
         state.roomId = roomId;
         state.color = 1;
@@ -201,9 +209,16 @@ function handleApi(res, pathname, msg) {
         }
 
         room.board[row][col] = state.color;
+        room.moves.push({ row, col, color: state.color });
         const win = checkWin(room.board, row, col, state.color);
         room.turn = state.color === 1 ? 2 : 1;
         if (win) room.phase = 'ended';
+
+        // 有悔棋请求待处理时落子，视为用行动拒绝了悔棋：请求自动作废
+        if (room.pendingUndo) {
+            room.pendingUndo = null;
+            broadcastToRoom(state.roomId, { type: 'undo-cancelled' });
+        }
 
         broadcastToRoom(state.roomId, {
             type: 'move',
@@ -217,6 +232,84 @@ function handleApi(res, pathname, msg) {
         return;
     }
 
+    if (pathname === '/api/undo-request') {
+        const room = rooms.get(state.roomId);
+        if (!room || room.phase !== 'playing') {
+            reply({ type: 'error', message: '当前无法悔棋' });
+            return;
+        }
+        if (room.moves.length === 0) {
+            reply({ type: 'error', message: '还没有落子，无法悔棋' });
+            return;
+        }
+        // 悔棋只能悔自己刚落的最后一手
+        const lastMove = room.moves[room.moves.length - 1];
+        if (lastMove.color !== state.color) {
+            reply({ type: 'error', message: '只能悔自己刚落的那一手棋' });
+            return;
+        }
+        if (room.pendingUndo) {
+            reply({ type: 'error', message: '已有悔棋请求等待处理' });
+            return;
+        }
+        const opponent = room.players.find(p => p.clientId !== clientId);
+        if (!opponent || !opponent.connected) {
+            reply({ type: 'error', message: '对手不在线，无法悔棋' });
+            return;
+        }
+        room.pendingUndo = { requesterId: clientId, requesterColor: state.color };
+        room.players.forEach(p => {
+            sendToClient(p.clientId, {
+                type: 'undo-request',
+                requesterColor: state.color,
+                isRequester: p.clientId === clientId,
+            });
+        });
+        reply({ ok: true });
+        return;
+    }
+
+    if (pathname === '/api/undo-respond') {
+        const room = rooms.get(state.roomId);
+        if (!room || !room.pendingUndo) {
+            reply({ ok: false });
+            return;
+        }
+        // 请求方不能处理自己的悔棋请求
+        if (room.pendingUndo.requesterId === clientId) {
+            reply({ ok: false });
+            return;
+        }
+        const requesterColor = room.pendingUndo.requesterColor;
+        room.pendingUndo = null;
+        if (msg.accept) {
+            const lastMove = room.moves.pop();
+            room.board[lastMove.row][lastMove.col] = 0;
+            room.turn = lastMove.color; // 悔棋后轮到悔棋方重新落子
+            broadcastToRoom(state.roomId, {
+                type: 'undo',
+                row: lastMove.row,
+                col: lastMove.col,
+                color: lastMove.color,
+                turn: room.turn,
+            });
+        } else {
+            broadcastToRoom(state.roomId, { type: 'undo-declined', requesterColor });
+        }
+        reply({ ok: true });
+        return;
+    }
+
+    if (pathname === '/api/undo-cancel') {
+        const room = rooms.get(state.roomId);
+        if (room && room.pendingUndo && room.pendingUndo.requesterId === clientId) {
+            room.pendingUndo = null;
+            broadcastToRoom(state.roomId, { type: 'undo-cancelled' });
+        }
+        reply({ ok: true });
+        return;
+    }
+
     if (pathname === '/api/restart') {
         const room = rooms.get(state.roomId);
         if (!room || room.players.length < 2) {
@@ -224,6 +317,8 @@ function handleApi(res, pathname, msg) {
             return;
         }
         room.board = resetBoard();
+        room.moves = [];
+        room.pendingUndo = null;
         room.turn = 1;
         room.phase = 'playing';
         broadcastToRoom(state.roomId, { type: 'restart', turn: 1 });
@@ -239,6 +334,8 @@ function handleApi(res, pathname, msg) {
             return;
         }
         room.board = resetBoard();
+        room.moves = [];
+        room.pendingUndo = null;
         room.turn = 1;
         room.started = false;
         room.phase = 'waiting';

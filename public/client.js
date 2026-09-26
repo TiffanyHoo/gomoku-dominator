@@ -12,6 +12,7 @@ let gameMode = 'online'; // 'online' | 'local'
 let currentRoomId = null;   // 当前联机房间号
 let moveHistory = [];       // 棋谱：[{ row, col, color }]
 let viewIndex = null;       // null = 实时/终局局面；k = 回放到第 k 手
+let undoPending = false;    // 我发起的悔棋请求正在等待对方同意
 
 // ===== 3D 棋盘（board3d.js 提供，纯 CSS 3D 实现）=====
 Board3D.init(document.getElementById('board'), {
@@ -28,6 +29,7 @@ function initBoard() {
     hoverPos = null;
     moveHistory = [];
     viewIndex = null;
+    resetUndoUI();
     drawBoard();
     updateTurnInfo();
     renderMoveList();
@@ -119,6 +121,7 @@ function startLocalGame() {
 
 function placeLocalMove(row, col) {
     board[row][col] = currentTurn;
+    moveHistory.push({ row, col, color: currentTurn }); // 记录棋谱，悔棋时依赖它回退
     hoverPos = null;
     if (checkWin(row, col, currentTurn)) {
         gameOver = true;
@@ -130,6 +133,7 @@ function placeLocalMove(row, col) {
     currentTurn = currentTurn === 1 ? 2 : 1;
     drawBoard();
     updateTurnInfo();
+    renderMoveList();
 }
 
 function checkWin(row, col, color) {
@@ -211,8 +215,35 @@ function handleMessage(msg) {
         document.getElementById('winOverlay').style.display = 'none';
     }
 
+    if (msg.type === 'undo-request') {
+        if (msg.isRequester) {
+            undoPending = true;
+            document.getElementById('btnUndo').textContent = '撤销悔棋';
+            showToast('悔棋请求已发送，等待对方同意');
+        } else {
+            const who = msg.requesterColor === 1 ? '黑方' : '白方';
+            document.getElementById('undoText').textContent = `${who}请求悔棋，是否同意？`;
+            document.getElementById('undoOverlay').style.display = '';
+        }
+    }
+
+    if (msg.type === 'undo') {
+        resetUndoUI();
+        applyUndo();
+    }
+
+    if (msg.type === 'undo-declined') {
+        resetUndoUI();
+        if (msg.requesterColor === myColor) showToast('对方拒绝了悔棋');
+    }
+
+    if (msg.type === 'undo-cancelled') {
+        resetUndoUI();
+    }
+
     if (msg.type === 'leave') {
         // 对手离开：不踢回大厅，保留棋盘供复盘，用非阻挡提示条提示
+        resetUndoUI();
         if (msg.wasPlaying) {
             gameOver = true;
             updateTurnInfo();
@@ -233,6 +264,10 @@ function handleMessage(msg) {
         errEl.textContent = msg.message;
         errEl.style.display = '';
         setTimeout(() => { errEl.style.display = 'none'; }, 3000);
+        // errorMsg 位于大厅，对局中不可见，改用 toast 提示
+        if (document.getElementById('game').style.display !== 'none') {
+            showToast(msg.message);
+        }
     }
 }
 
@@ -308,6 +343,75 @@ function leaveRoom() {
 
 function hideWinOverlay() {
     document.getElementById('winOverlay').style.display = 'none';
+}
+
+// ===== 悔棋 =====
+// 本地模式：直接回退最后一手；联机模式：需对方同意后回退
+
+function undoMove() {
+    if (gameMode === 'local') {
+        if (gameOver || moveHistory.length === 0) {
+            showToast('没有可悔的棋');
+            return;
+        }
+        applyUndo();
+        return;
+    }
+    // 联机模式
+    if (!es || es.readyState !== EventSource.OPEN) return;
+    if (undoPending) {
+        // 再次点击 = 撤销悔棋请求
+        resetUndoUI();
+        sendToServer({ type: 'undo-cancel' });
+        return;
+    }
+    if (gameOver) {
+        showToast('对局已结束，无法悔棋');
+        return;
+    }
+    if (moveHistory.length === 0) {
+        showToast('还没有落子，无法悔棋');
+        return;
+    }
+    if (moveHistory[moveHistory.length - 1].color !== myColor) {
+        showToast('只能悔自己刚落的那一手棋');
+        return;
+    }
+    sendToServer({ type: 'undo-request' });
+}
+
+// 回退最后一手棋：清除棋盘与棋谱记录，轮到悔棋方重新落子
+function applyUndo() {
+    const last = moveHistory.pop();
+    if (!last) return;
+    board[last.row][last.col] = 0;
+    currentTurn = last.color;
+    if (viewIndex !== null) viewIndex = Math.min(viewIndex, moveHistory.length);
+    drawBoard();
+    renderMoveList();
+    updateTurnInfo();
+}
+
+function respondUndo(accept) {
+    document.getElementById('undoOverlay').style.display = 'none';
+    sendToServer({ type: 'undo-respond', accept: !!accept });
+}
+
+function resetUndoUI() {
+    undoPending = false;
+    const btn = document.getElementById('btnUndo');
+    if (btn) btn.textContent = '悔棋';
+    const overlay = document.getElementById('undoOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function showToast(text, ms = 2000) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = text;
+    t.style.display = '';
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => { t.style.display = 'none'; }, ms);
 }
 
 // ===== 棋谱回放 =====

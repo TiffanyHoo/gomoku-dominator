@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>称霸五子棋</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚫</text></svg>">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <div id="app">
@@ -55,6 +55,7 @@
         </div>
         <div class="game-footer">
             <span class="room-label" id="roomLabel">房间：<span id="gameRoomId"></span></span>
+            <button id="btnUndo" class="btn btn-small" onclick="undoMove()">悔棋</button>
             <button class="btn btn-small" onclick="restartGame()">重新开始</button>
             <button class="btn btn-small btn-leave" onclick="leaveRoom()">离开房间</button>
         </div>
@@ -83,9 +84,21 @@
             </div>
         </div>
     </div>
+
+    <div id="undoOverlay" class="win-overlay" style="display:none">
+        <div class="win-content undo-content">
+            <h2 id="undoText" class="undo-title">对方请求悔棋</h2>
+            <div class="overlay-actions">
+                <button class="btn btn-primary" onclick="respondUndo(true)">同意</button>
+                <button class="btn btn-leave" onclick="respondUndo(false)">拒绝</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" style="display:none"></div>
 </div>
 
 <script src="board3d.js?v=4"></script>
-<script src="client.js?v=4"></script>
+<script src="client.js?v=5"></script>
 </body>
 </html>
