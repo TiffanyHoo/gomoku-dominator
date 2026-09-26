@@ -670,3 +670,10 @@ body {
     z-index: 200;
     pointer-events: none;
 }
+
+/* 房间号一键复制按钮：与大厅 2em 大号房间号、页脚小字都对齐 */
+.copy-btn {
+    margin-left: 8px;
+    padding: 6px 12px;
+    vertical-align: middle;
+}

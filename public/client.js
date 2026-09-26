@@ -414,6 +414,29 @@ function showToast(text, ms = 2000) {
     showToast.timer = setTimeout(() => { t.style.display = 'none'; }, ms);
 }
 
+// ===== 房间号一键复制 =====
+
+async function copyRoomId() {
+    const id = currentRoomId;
+    if (!id) return;
+    let ok = false;
+    // clipboard API 仅在安全上下文（https / localhost）可用，局域网 http 访问需降级
+    if (navigator.clipboard && window.isSecureContext) {
+        try { await navigator.clipboard.writeText(id); ok = true; } catch {}
+    }
+    if (!ok) {
+        const ta = document.createElement('textarea');
+        ta.value = id;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { ok = document.execCommand('copy'); } catch {}
+        document.body.removeChild(ta);
+    }
+    showToast(ok ? '房间号已复制' : '复制失败，请手动复制');
+}
+
 // ===== 棋谱回放 =====
 
 function coordLabel(row, col) {

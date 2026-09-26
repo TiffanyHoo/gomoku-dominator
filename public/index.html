@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>称霸五子棋</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚫</text></svg>">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 <div id="app">
@@ -23,7 +23,9 @@
             <button id="btnLocal" class="btn btn-secondary" onclick="startLocalGame()">本地对战（同屏）</button>
         </div>
         <div id="roomInfo" class="room-info" style="display:none">
-            <p>房间号：<span id="displayRoomId" class="room-code"></span></p>
+            <p>房间号：<span id="displayRoomId" class="room-code"></span>
+                <button class="btn btn-small copy-btn" onclick="copyRoomId()">复制</button>
+            </p>
             <p id="waitMsg" class="wait-msg">等待对手加入...</p>
         </div>
         <div id="errorMsg" class="error-msg" style="display:none"></div>
@@ -54,7 +56,9 @@
             <div class="board-tip">拖动旋转视角 · 滚轮/双指缩放 · 双击空白处复位</div>
         </div>
         <div class="game-footer">
-            <span class="room-label" id="roomLabel">房间：<span id="gameRoomId"></span></span>
+            <span class="room-label" id="roomLabel">房间：<span id="gameRoomId"></span>
+                <button class="btn btn-small copy-btn" onclick="copyRoomId()">复制</button>
+            </span>
             <button id="btnUndo" class="btn btn-small" onclick="undoMove()">悔棋</button>
             <button class="btn btn-small" onclick="restartGame()">重新开始</button>
             <button class="btn btn-small btn-leave" onclick="leaveRoom()">离开房间</button>
@@ -99,6 +103,27 @@
 </div>
 
 <script src="board3d.js?v=4"></script>
-<script src="client.js?v=5"></script>
+<script src="client.js?v=6"></script>
+<script>
+// 兜底：client.js 未成功执行（常见于重新发布的更新窗口，拿到不完整或失效的脚本）时，
+// 自动刷新一次恢复；仍失败则给出明确提示，避免按钮点击无反应且无从排查
+(function () {
+    if (typeof createRoom === 'function') return; // client.js 正常执行
+    var reloaded = false;
+    try { reloaded = !!sessionStorage.getItem('gomoku_auto_reloaded'); } catch (e) {}
+    var tip = document.createElement('div');
+    tip.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);'
+        + 'z-index:999;padding:10px 24px;background:rgba(231,76,60,0.95);color:#fff;'
+        + 'border-radius:10px;font-weight:600;font-size:14px;box-shadow:0 4px 18px rgba(0,0,0,0.35);';
+    if (!reloaded) {
+        try { sessionStorage.setItem('gomoku_auto_reloaded', '1'); } catch (e) {}
+        tip.textContent = '页面资源更新中，正在自动刷新…';
+        setTimeout(function () { location.reload(); }, 1500);
+    } else {
+        tip.textContent = '页面资源加载失败，请刷新页面重试';
+    }
+    document.body.appendChild(tip);
+})();
+</script>
 </body>
 </html>
